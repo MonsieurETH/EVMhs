@@ -1,0 +1,28 @@
+[
+  {
+    "name": "STOP",
+    "hint": "",
+    "code": {
+      "asm": "STOP",
+      "bin": "00"
+    },
+    "expect": {
+      "success": true,
+      "stack": []
+    }
+  },
+  {
+    "name": "PUSH0",
+    "hint": "Read \"Program Counter\" section of the course learning materials for an example on how to parse the bytecode",
+    "code": {
+      "asm": "PUSH0",
+      "bin": "5f"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  }
+]
