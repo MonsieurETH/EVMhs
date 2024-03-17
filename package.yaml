@@ -26,6 +26,8 @@ dependencies:
 - hspec >= 2.11.7
 - bytestring >= 0.11.5.3
 - aeson >= 2.1.2.1
+- unordered-containers >= 0.2.20
+- deepseq >= 1.4.8.1
 
 ghc-options:
 - -Wall

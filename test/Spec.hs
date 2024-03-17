@@ -4,9 +4,9 @@ import Data.Aeson (FromJSON, decode, parseJSON, withObject, (.:))
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as B
 import Data.Maybe (fromJust, isJust)
-import Data.Stack (Stack, stackIsEmpty, stackNew, stackPop, stackPush, stackSize)
 import Lib
 import Numeric (showHex)
+import Stack (Stack, stackIsEmpty, stackNew, stackPop, stackPush, stackSize)
 import Test.Hspec
 
 data Test = Test

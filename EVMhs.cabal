@@ -25,7 +25,9 @@ source-repository head
 
 library
   exposed-modules:
+      DataSpace
       Lib
+      Stack
   other-modules:
       Paths_EVMhs
   autogen-modules:
@@ -39,7 +41,9 @@ library
     , base >=4.7 && <5
     , bytestring >=0.11.5.3
     , cryptonite >=0.30
+    , deepseq >=1.4.8.1
     , hspec >=2.11.7
+    , unordered-containers >=0.2.20
   default-language: Haskell2010
 
 executable EVMhs-exe
@@ -58,7 +62,9 @@ executable EVMhs-exe
     , base >=4.7 && <5
     , bytestring >=0.11.5.3
     , cryptonite >=0.30
+    , deepseq >=1.4.8.1
     , hspec >=2.11.7
+    , unordered-containers >=0.2.20
   default-language: Haskell2010
 
 test-suite EVMhs-test
@@ -78,5 +84,7 @@ test-suite EVMhs-test
     , base >=4.7 && <5
     , bytestring >=0.11.5.3
     , cryptonite >=0.30
+    , deepseq >=1.4.8.1
     , hspec >=2.11.7
+    , unordered-containers >=0.2.20
   default-language: Haskell2010

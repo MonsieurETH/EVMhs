@@ -10,13 +10,14 @@ import Crypto.Hash (Digest, SHA3_256, hash)
 import Data.Bits
 import Data.Char (digitToInt)
 import Data.Maybe (fromMaybe)
-import Data.Stack (Stack, stackNew, stackPop, stackPush, stackSize)
+import DataSpace (DataSpace, newDataSpace, readBytes, writeBytes)
+import Stack
 
 data EVM = EVM
   { pc :: Int,
-    memory :: [Int],
+    memory :: DataSpace,
     stack :: Stack Integer,
-    storage :: [(Int, Int)]
+    storage :: DataSpace
   }
   deriving (Show)
 
@@ -230,8 +231,48 @@ binaryOps =
     SHA3
   ]
 
+dupOps :: [EVMOperation]
+dupOps =
+  [ DUP1,
+    DUP2,
+    DUP3,
+    DUP4,
+    DUP5,
+    DUP6,
+    DUP7,
+    DUP8,
+    DUP9,
+    DUP10,
+    DUP11,
+    DUP12,
+    DUP13,
+    DUP14,
+    DUP15,
+    DUP16
+  ]
+
+swapOps :: [EVMOperation]
+swapOps =
+  [ SWAP1,
+    SWAP2,
+    SWAP3,
+    SWAP4,
+    SWAP5,
+    SWAP6,
+    SWAP7,
+    SWAP8,
+    SWAP9,
+    SWAP10,
+    SWAP11,
+    SWAP12,
+    SWAP13,
+    SWAP14,
+    SWAP15,
+    SWAP16
+  ]
+
 newEVM :: EVM
-newEVM = EVM {pc = 0, memory = [], stack = stackNew, storage = []}
+newEVM = EVM {pc = 0, memory = newDataSpace, stack = stackNew, storage = newDataSpace}
 
 hexToDec :: String -> Integer
 hexToDec hexStr = read ("0x" ++ hexStr) :: Integer
@@ -403,6 +444,10 @@ runOperation evm op d
   | hexop == POP = stackPop (stack evm) >>= \(stack', _) -> Just evm {pc = pc evm + 1, stack = stack'}
   | hexop == ISZERO = stackPop (stack evm) >>= \(stack', x) -> Just evm {pc = pc evm + 1, stack = stackPush stack' (if x == 0 then 1 else 0)}
   | hexop == NOT = stackPop (stack evm) >>= \(stack', x) -> Just evm {pc = pc evm + 1, stack = stackPush stack' (complement x)}
+  | hexop `elem` swapOps = Just evm {pc = pc evm + 1, stack = stackSwapNM (stack evm) (fromEnum hexop - fromEnum SWAP1 + 1) 0}
+  | hexop `elem` dupOps =
+      let n = fromEnum hexop - fromEnum DUP1
+       in stackPeekN (stack evm) n >>= \x -> Just evm {pc = pc evm + 1, stack = stackPush (stack evm) x}
   | hexop `elem` binaryOps =
       stackPop (stack evm) >>= \(stack', x) ->
         stackPop stack' >>= \(stack'', y) ->

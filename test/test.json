@@ -1005,5 +1005,148 @@
       ],
       "success": true
     }
+  },{
+    "name": "DUP1",
+    "hint": "Duplicate the first element from the stack and push it onto the stack",
+    "code": {
+      "asm": "PUSH1 1\nDUP1\nADD",
+      "bin": "60018001"
+    },
+    "expect": {
+      "stack": [
+        "0x2"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "DUP3",
+    "hint": "Duplicate the 3rd element from the stack and push it onto the stack",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 2\nPUSH1 3\nDUP3",
+      "bin": "60016002600382"
+    },
+    "expect": {
+      "stack": [
+        "0x1",
+        "0x3",
+        "0x2",
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "DUP5",
+    "hint": "Try to implement your code to handle any DUP1...DUP16",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 2\nPUSH1 3\nPUSH1 4\nPUSH1 5\nDUP5",
+      "bin": "6001600260036004600584"
+    },
+    "expect": {
+      "stack": [
+        "0x1",
+        "0x5",
+        "0x4",
+        "0x3",
+        "0x2",
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "DUP8",
+    "hint": "No seriously try to implement your code to handle any DUP1...DUP16 generically. You can do OPCODE - DUP1 + 1 to learn which item to take from the stack",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 2\nPUSH1 3\nPUSH1 4\nPUSH1 5\nPUSH1 6\nPUSH1 7\nPUSH1 8\nDUP8",
+      "bin": "6001600260036004600560066007600887"
+    },
+    "expect": {
+      "stack": [
+        "0x1",
+        "0x8",
+        "0x7",
+        "0x6",
+        "0x5",
+        "0x4",
+        "0x3",
+        "0x2",
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SWAP",
+    "hint": "Swap the top item from the stack with the 1st one after that",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 2\nSWAP1",
+      "bin": "6001600290"
+    },
+    "expect": {
+      "stack": [
+        "0x1",
+        "0x2"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SWAP3",
+    "hint": "Swap the top item from the stack with the 3rd one after that",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 2\nPUSH1 3\nPUSH1 4\nSWAP3",
+      "bin": "600160026003600492"
+    },
+    "expect": {
+      "stack": [
+        "0x1",
+        "0x3",
+        "0x2",
+        "0x4"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SWAP5",
+    "hint": "Swap the top item from the stack with the 5th one after that. Try to implement SWAP1..SWAP16 with the same code",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 2\nPUSH1 3\nPUSH1 4\nPUSH1 5\nPUSH1 6\nSWAP5",
+      "bin": "60016002600360046005600694"
+    },
+    "expect": {
+      "stack": [
+        "0x1",
+        "0x5",
+        "0x4",
+        "0x3",
+        "0x2",
+        "0x6"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SWAP7",
+    "hint": "No seriously try to implement your code to handle any SWAP1...SWAP16 generically. You can do OPCODE - SWAP1 + 2 to learn which item to take from the stack",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 2\nPUSH1 3\nPUSH1 4\nPUSH1 5\nPUSH1 6\nPUSH1 7\nPUSH1 8\nSWAP7",
+      "bin": "6001600260036004600560066007600896"
+    },
+    "expect": {
+      "stack": [
+        "0x1",
+        "0x7",
+        "0x6",
+        "0x5",
+        "0x4",
+        "0x3",
+        "0x2",
+        "0x8"
+      ],
+      "success": true
+    }
   }
 ]
