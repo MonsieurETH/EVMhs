@@ -24,5 +24,986 @@
       ],
       "success": true
     }
+  },
+  {
+    "name": "PUSH1",
+    "hint": "Read \"Program Counter\" section of the course learning materials for an example on how to parse the bytecode",
+    "code": {
+      "asm": "PUSH1 1",
+      "bin": "6001"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "PUSH2",
+    "hint": "PUSH2 reads the next 2 bytes, don't forget to properly increment PC",
+    "code": {
+      "asm": "PUSH2 0x1122",
+      "bin": "611122"
+    },
+    "expect": {
+      "stack": [
+        "0x1122"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "PUSH4",
+    "hint": "PUSH4 reads the next 4 bytes",
+    "code": {
+      "asm": "PUSH4 0x11223344",
+      "bin": "6311223344"
+    },
+    "expect": {
+      "stack": [
+        "0x11223344"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "PUSH6",
+    "hint": "PUSH6 reads the next 6 bytes. Can you implement all PUSH1...PUSH32 using the same code?",
+    "code": {
+      "asm": "PUSH6 0x112233445566",
+      "bin": "65112233445566"
+    },
+    "expect": {
+      "stack": [
+        "0x112233445566"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "PUSH10",
+    "hint": "SIZE = OPCODE - PUSH1 + 1, then transform take the next SIZE bytes, PC += SIZE",
+    "code": {
+      "asm": "PUSH10 0x112233445566778899aa",
+      "bin": "69112233445566778899aa"
+    },
+    "expect": {
+      "stack": [
+        "0x112233445566778899aa"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "PUSH11",
+    "hint": "SIZE = OPCODE - PUSH1 + 1, program.slice(pc + 1, pc + 1 + size)",
+    "code": {
+      "asm": "PUSH11 0x112233445566778899aabb",
+      "bin": "6a112233445566778899aabb"
+    },
+    "expect": {
+      "stack": [
+        "0x112233445566778899aabb"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "PUSH32",
+    "hint": "PUSH32 reads the next 32 bytes (256 bits)",
+    "code": {
+      "asm": "PUSH32 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "bin": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    "expect": {
+      "stack": [
+        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "PUSH (twice)",
+    "hint": "Note the order of items on the stack. The tests expect the top of the stack to be the first element",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 2",
+      "bin": "60016002"
+    },
+    "expect": {
+      "stack": [
+        "0x2",
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "POP",
+    "hint": "POP removes the top item from the stack and discards it",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 2\nPOP",
+      "bin": "6001600250"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "STOP (midway)",
+    "hint": "Note that the `PUSH1 2` didn't execute because the program stops after STOP opcode",
+    "code": {
+      "asm": "PUSH1 1\nSTOP\nPUSH1 2",
+      "bin": "6001006002"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "ADD",
+    "hint": "ADD takes the first 2 items from the stack, adds them together and pushes the result",
+    "code": {
+      "asm": "PUSH1 0x01\nPUSH1 0x02\nADD",
+      "bin": "6001600201"
+    },
+    "expect": {
+      "stack": [
+        "0x3"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "ADD (overflow)",
+    "hint": "EVM operates with uint256, if you add 2 to the max possible value it overflows and wraps around",
+    "code": {
+      "asm": "PUSH32 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\nPUSH1 0x02\nADD",
+      "bin": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600201"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MUL",
+    "code": {
+      "asm": "PUSH1 0x02\nPUSH1 0x03\nMUL",
+      "bin": "6002600302"
+    },
+    "expect": {
+      "stack": [
+        "0x6"
+      ],
+      "success": true
+    },
+    "hint": ""
+  },
+  {
+    "name": "MUL (overflow)",
+    "hint": "All math is performed with implicit [mod 2^256]",
+    "code": {
+      "asm": "PUSH32 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\nPUSH1 0x02\nMUL",
+      "bin": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600202"
+    },
+    "expect": {
+      "stack": [
+        "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SUB",
+    "hint": "SUB takes the first element from the stack and subtracts the second element from the stack",
+    "code": {
+      "asm": "PUSH1 0x02\nPUSH1 0x03\nSUB",
+      "bin": "6002600303"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SUB (underflow)",
+    "hint": "Underflow works the same way as overflow, 3 - 2 wraps around and results in MAX_UINT256",
+    "code": {
+      "asm": "PUSH1 0x03\nPUSH1 0x02\nSUB",
+      "bin": "6003600203"
+    },
+    "expect": {
+      "stack": [
+        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "DIV",
+    "hint": "DIV takes the first element from the stack and divides it by the second element from the stack",
+    "code": {
+      "asm": "PUSH1 0x02\nPUSH1 0x06\nDIV",
+      "bin": "6002600604"
+    },
+    "expect": {
+      "stack": [
+        "0x3"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "DIV (whole)",
+    "hint": "Fraction part of the division is discarded",
+    "code": {
+      "asm": "PUSH1 0x06\nPUSH1 0x02\nDIV",
+      "bin": "6006600204"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "DIV (by zero)",
+    "hint": "In EVM you can divide by zero! Modern Solidity protects from this by adding instructions that check for zero",
+    "code": {
+      "asm": "PUSH1 0x00\nPUSH1 0x02\nDIV",
+      "bin": "6000600204"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MOD",
+    "hint": "10 mod 3 = 1",
+    "code": {
+      "asm": "PUSH1 3\nPUSH1 10\nMOD",
+      "bin": "6003600a06"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MOD (by larger number)",
+    "hint": "5 mod 17 = 5",
+    "code": {
+      "asm": "PUSH1 17\nPUSH1 5\nMOD",
+      "bin": "6011600506"
+    },
+    "expect": {
+      "stack": [
+        "0x5"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MOD (by zero)",
+    "hint": "In EVM you can divide by zero! Modern Solidity protects from this by adding instructions that check for zero",
+    "code": {
+      "asm": "PUSH1 0\nPUSH1 2\nMOD",
+      "bin": "6000600206"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "ADDMOD",
+    "hint": "10 + 10 mod 8 = 4",
+    "code": {
+      "asm": "PUSH1 8\nPUSH1 10\nPUSH1 10\nADDMOD",
+      "bin": "6008600a600a08"
+    },
+    "expect": {
+      "stack": [
+        "0x4"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "ADDMOD (wrapped)",
+    "code": {
+      "asm": "PUSH1 2\nPUSH1 2\nPUSH32 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\nADDMOD",
+      "bin": "600260027fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    },
+    "hint": ""
+  },
+  {
+    "name": "MULMOD",
+    "hint": "10 * 10 mod 8 = 4",
+    "code": {
+      "asm": "PUSH1 8\nPUSH1 10\nPUSH1 10\nMULMOD",
+      "bin": "6008600a600a09"
+    },
+    "expect": {
+      "stack": [
+        "0x4"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MULMOD (wrapped)",
+    "code": {
+      "asm": "PUSH1 12\nPUSH32 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\nPUSH32 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\nMULMOD",
+      "bin": "600c7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff09"
+    },
+    "expect": {
+      "stack": [
+        "0x9"
+      ],
+      "success": true
+    },
+    "hint": ""
+  },
+  {
+    "name": "EXP",
+    "code": {
+      "asm": "PUSH1 2\nPUSH1 10\nEXP",
+      "bin": "6002600a0a"
+    },
+    "expect": {
+      "stack": [
+        "0x64"
+      ],
+      "success": true
+    },
+    "hint": ""
+  },
+  {
+    "name": "SIGNEXTEND (positive)",
+    "hint": "Read \"Negative Numbers\" section of the course learning materials. SIGNEXTEND has no effect on \"positive\" numbers",
+    "code": {
+      "asm": "PUSH1 0x7F\nPUSH1 0\nSIGNEXTEND",
+      "bin": "607f60000b"
+    },
+    "expect": {
+      "stack": [
+        "0x7f"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SIGNEXTEND (negative)",
+    "hint": "Read \"Negative Numbers\" section of the course learning materials. The first bit of 0xFF is 1, so it is a negative number and needs to be padded by 1s in front",
+    "code": {
+      "asm": "PUSH1 0xFF\nPUSH1 0\nSIGNEXTEND",
+      "bin": "60ff60000b"
+    },
+    "expect": {
+      "stack": [
+        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SDIV",
+    "hint": "Read \"Negative Numbers\" section of the course learning materials. SDIV works like DIV for \"positive\" numbers",
+    "code": {
+      "asm": "PUSH1 10\nPUSH1 10\nSDIV",
+      "bin": "600a600a05"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SDIV (negative)",
+    "hint": "Read \"Negative Numbers\" section of the course learning materials. -2 / -1 = 2",
+    "code": {
+      "asm": "PUSH32 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\nPUSH32 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe\nSDIV",
+      "bin": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe05"
+    },
+    "expect": {
+      "stack": [
+        "0x2"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SDIV (mix of negative and positive)",
+    "hint": "Read \"Negative Numbers\" section of the course learning materials. 10 / -2 = -5",
+    "code": {
+      "asm": "PUSH32 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe\nPUSH1 10\nSDIV",
+      "bin": "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe600a05"
+    },
+    "expect": {
+      "stack": [
+        "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SMOD",
+    "hint": "Read \"Negative Numbers\" section of the course learning materials. SMOD works like MOD for \"positive\" numbers",
+    "code": {
+      "asm": "PUSH1 3\nPUSH1 10\nSMOD",
+      "bin": "6003600a07"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SMOD (negative)",
+    "hint": "Read \"Negative Numbers\" section of the course learning materials. -10 mod -3 = -1",
+    "code": {
+      "asm": "PUSH32 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd\nPUSH32 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8\nSMOD",
+      "bin": "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff807"
+    },
+    "expect": {
+      "stack": [
+        "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SDIV (by zero)",
+    "hint": "In EVM you can divide by zero",
+    "code": {
+      "asm": "PUSH1 0x00\nPUSH32 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd\nSDIV",
+      "bin": "60007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd05"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SMOD (by zero)",
+    "hint": "In EVM you can divide by zero",
+    "code": {
+      "asm": "PUSH1 0x00\nPUSH32 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd\nSMOD",
+      "bin": "60007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd07"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "LT",
+    "hint": "9 < 10 = true (1)",
+    "code": {
+      "asm": "PUSH1 10\nPUSH1 9\nLT",
+      "bin": "600a600910"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "LT (equal)",
+    "hint": "10 < 10 = false (0)",
+    "code": {
+      "asm": "PUSH1 10\nPUSH1 10\nLT",
+      "bin": "600a600a10"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "LT (greater)",
+    "hint": "11 < 10 = false (0)",
+    "code": {
+      "asm": "PUSH1 10\nPUSH1 11\nLT",
+      "bin": "600a600b10"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "GT",
+    "hint": "10 > 9 = true (1)",
+    "code": {
+      "asm": "PUSH1 9\nPUSH1 10\nGT",
+      "bin": "6009600a11"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "GT (equal)",
+    "hint": "10 > 10 = false (0)",
+    "code": {
+      "asm": "PUSH1 10\nPUSH1 10\nGT",
+      "bin": "600a600a11"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "GT (less)",
+    "hint": "10 > 11 = false (0)",
+    "code": {
+      "asm": "PUSH1 11\nPUSH1 10\nGT",
+      "bin": "600b600a11"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SLT",
+    "hint": "Same as LT but treats arguments as signed numbers. -1 < 0 = true (1)",
+    "code": {
+      "asm": "PUSH1 0\nPUSH32 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\nSLT",
+      "bin": "60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff12"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SLT (equal)",
+    "hint": "Same as LT but treats arguments as signed numbers. -1 < -1 = false (0)",
+    "code": {
+      "asm": "PUSH32 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\nPUSH32 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\nSLT",
+      "bin": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff12"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SLT (greater)",
+    "hint": "Same as LT but treats arguments as signed numbers. -1 < -1 = false (0)",
+    "code": {
+      "asm": "PUSH32 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\nPUSH1 0\nSLT",
+      "bin": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600012"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SGT",
+    "hint": "Same as GT but treats arguments as signed numbers. No effect on \"positive\" numbers: 10 > 9 = true (1)",
+    "code": {
+      "asm": "PUSH1 9\nPUSH1 10\nSGT",
+      "bin": "6009600a13"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SGT (equal)",
+    "hint": "Same as GT but treats arguments as signed numbers. -2 > -2 = false (0)",
+    "code": {
+      "asm": "PUSH32 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe\nPUSH32 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe\nSGT",
+      "bin": "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe13"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SGT (greater)",
+    "hint": "Same as GT but treats arguments as signed numbers. -2 > -3 = true (1)",
+    "code": {
+      "asm": "PUSH32 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd\nPUSH32 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe\nSGT",
+      "bin": "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe13"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "EQ",
+    "hint": "10 == 10 = true (1)",
+    "code": {
+      "asm": "PUSH1 10\nPUSH1 10\nEQ",
+      "bin": "600a600a14"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "EQ (not equal)",
+    "hint": "10 == 9 = false (0)",
+    "code": {
+      "asm": "PUSH1 9\nPUSH1 10\nEQ",
+      "bin": "6009600a14"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "ISZERO (not zero)",
+    "hint": "If the top element on the stack is not zero, pushes 0",
+    "code": {
+      "asm": "PUSH1 9\nISZERO",
+      "bin": "600915"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "ISZERO (zero)",
+    "hint": "If the top element on the stack is zero, pushes 1",
+    "code": {
+      "asm": "PUSH1 0\nISZERO",
+      "bin": "600015"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "NOT",
+    "hint": "Bitwise NOT operation, flips every bit 1->0, 0->1",
+    "code": {
+      "asm": "PUSH1 0x0f\nNOT",
+      "bin": "600f19"
+    },
+    "expect": {
+      "stack": [
+        "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "AND",
+    "hint": "Bitwise AND operation of the top 2 items on the stack",
+    "code": {
+      "asm": "PUSH1 0xe\nPUSH1 0x3\nAND",
+      "bin": "600e600316"
+    },
+    "expect": {
+      "stack": [
+        "0x2"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "OR",
+    "hint": "Bitwise OR operation of the top 2 items on the stack",
+    "code": {
+      "asm": "PUSH1 0xe\nPUSH1 0x3\nOR",
+      "bin": "600e600317"
+    },
+    "expect": {
+      "stack": [
+        "0xf"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "XOR",
+    "hint": "Bitwise XOR operation of the top 2 items on the stack",
+    "code": {
+      "asm": "PUSH1 0xf0\nPUSH1 0x0f\nXOR",
+      "bin": "60f0600f18"
+    },
+    "expect": {
+      "stack": [
+        "0xff"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SHL",
+    "hint": "Bitwise shift left, 1 << 1 = 2",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 1\nSHL",
+      "bin": "600160011b"
+    },
+    "expect": {
+      "stack": [
+        "0x2"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SHL (discards)",
+    "hint": "Bits that end up outside MAX_UINT256 are discarded",
+    "code": {
+      "asm": "PUSH32 0xFF00000000000000000000000000000000000000000000000000000000000000\nPUSH1 4\nSHL",
+      "bin": "7fff0000000000000000000000000000000000000000000000000000000000000060041b"
+    },
+    "expect": {
+      "stack": [
+        "0xf000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SHL (too large)",
+    "hint": "When shift amount is too large, returns zero",
+    "code": {
+      "asm": "PUSH1 1\nPUSH4 0xFFFFFFFF\nSHL",
+      "bin": "600163ffffffff1b"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SHR",
+    "hint": "Bitwise shift right, 2 >> 1 = 1",
+    "code": {
+      "asm": "PUSH1 2\nPUSH1 1\nSHR",
+      "bin": "600260011c"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SHR (discards)",
+    "hint": "Bits that end up outside are discarded",
+    "code": {
+      "asm": "PUSH1 0xFF\nPUSH1 4\nSHR",
+      "bin": "60ff60041c"
+    },
+    "expect": {
+      "stack": [
+        "0xf"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SHR (too large)",
+    "hint": "When shift amount is too large, returns zero",
+    "code": {
+      "asm": "PUSH1 1\nPUSH4 0xFFFFFFFF\nSHR",
+      "bin": "600163ffffffff1c"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SAR",
+    "hint": "Like SHR but treats the argument as signed number. No effect on \"positive\" numbers, 2 >> 1 = 1",
+    "code": {
+      "asm": "PUSH1 2\nPUSH1 1\nSAR",
+      "bin": "600260011d"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SAR (fills 1s)",
+    "hint": "Note that unlike SHR, it fills the empty space with 1s",
+    "code": {
+      "asm": "PUSH32 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00\nPUSH1 4\nSAR",
+      "bin": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0060041d"
+    },
+    "expect": {
+      "stack": [
+        "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SAR (too large)",
+    "hint": "When shift amount is too large and the first bit is 1, fills the whole number with 1s",
+    "code": {
+      "asm": "PUSH32 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00\nPUSH4 0xFFFFFFFF\nSAR",
+      "bin": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0063ffffffff1d"
+    },
+    "expect": {
+      "stack": [
+        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SAR (positive, too large)",
+    "hint": "When shift amount is too large and the first bit is 0, fills the whole number with 0s",
+    "code": {
+      "asm": "PUSH32 0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00\nPUSH4 0xFFFFFFFF\nSAR",
+      "bin": "7f0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0063ffffffff1d"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "BYTE",
+    "hint": "The value on the stack is treated as 32 bytes, take 31st (counting from the most significant one)",
+    "code": {
+      "asm": "PUSH1 0xff\nPUSH1 31\nBYTE",
+      "bin": "60ff601f1a"
+    },
+    "expect": {
+      "stack": [
+        "0xff"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "BYTE (30th)",
+    "hint": "The value on the stack is treated as 32 bytes, take 30st (counting from the most significant one)",
+    "code": {
+      "asm": "PUSH2 0xff00\nPUSH1 30\nBYTE",
+      "bin": "61ff00601e1a"
+    },
+    "expect": {
+      "stack": [
+        "0xff"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "BYTE (29th)",
+    "hint": "Try to generalize your code to work with any argument",
+    "code": {
+      "asm": "PUSH3 0xff0000\nPUSH1 29\nBYTE",
+      "bin": "62ff0000601d1a"
+    },
+    "expect": {
+      "stack": [
+        "0xff"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "BYTE (out of range)",
+    "hint": "Treat other elements as zeros",
+    "code": {
+      "asm": "PUSH32 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\nPUSH1 42\nBYTE",
+      "bin": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff602a1a"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
   }
 ]

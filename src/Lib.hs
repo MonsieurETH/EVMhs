@@ -383,20 +383,26 @@ hexToOperation hexStr =
     0xFD -> REVERT
     0xFE -> INVALID
     0xFF -> SELFDESTRUCT
-    _ -> error "Unknown operation code."
+    _ -> error "Unknown operation code (during translation)."
 
 run :: EVM -> String -> Maybe EVM
 run evm [] = Just evm
+run evm ('0' : '0' : bc) = Just evm {pc = pc evm + 1}
 run evm (op1 : op2 : bc)
-  | op1 == '6' && op2 >= '0' && op2 <= 'F' =
-      let n = 2 * (digitToInt op2 + 1)
+  | op1 == '6' || op1 == '7' =
+      let pushNumber = fromIntegral (16 * (digitToInt op1 - 6) + digitToInt op2) + 1
+          n = 2 * pushNumber
        in runOperation evm [op1, op2] (Just (take n bc)) >>= \evm' -> run evm' (drop n bc)
   | otherwise = runOperation evm [op1, op2] Nothing >>= \evm' -> run evm' bc
-run evm (b1 : b2 : bc) = runOperation evm [b1, b2] Nothing >>= \evm' -> run evm' bc
 
 runOperation :: EVM -> String -> Maybe [Char] -> Maybe EVM
 runOperation evm op d
   | hexop == STOP = Just evm {pc = pc evm + 1}
+  | hexop == ADDMOD = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> stackPop stack'' >>= \(stack''', z) -> Just evm {pc = pc evm + 1, stack = stackPush stack''' ((x + y) `mod` z)}
+  | hexop == MULMOD = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> stackPop stack'' >>= \(stack''', z) -> Just evm {pc = pc evm + 1, stack = stackPush stack''' ((x * y) `mod` z)}
+  | hexop == POP = stackPop (stack evm) >>= \(stack', _) -> Just evm {pc = pc evm + 1, stack = stack'}
+  | hexop == ISZERO = stackPop (stack evm) >>= \(stack', x) -> Just evm {pc = pc evm + 1, stack = stackPush stack' (if x == 0 then 1 else 0)}
+  | hexop == NOT = stackPop (stack evm) >>= \(stack', x) -> Just evm {pc = pc evm + 1, stack = stackPush stack' (complement x)}
   | hexop `elem` binaryOps =
       stackPop (stack evm) >>= \(stack', x) ->
         stackPop stack' >>= \(stack'', y) ->
@@ -405,37 +411,56 @@ runOperation evm op d
   | hexop `elem` pushOps =
       let n = fromEnum hexop - fromEnum PUSH1 + 2
        in Just evm {pc = pc evm + n, stack = stackPush (stack evm) hexdata}
-  | otherwise = error "Unknown operation code."
+  | otherwise = error $ "Unknown operation code " ++ op
   where
     hexop = hexToOperation op
     hexdata = hexToDec (fromMaybe "0" d)
     performBinaryOp op x y = case op of
-      ADD -> x + y
-      MUL -> x * y
-      SUB -> x - y
+      ADD -> (x + y) `mod` (2 ^ 256)
+      MUL -> (x * y) `mod` (2 ^ 256)
+      SUB -> (x - y) `mod` (2 ^ 256)
       DIV -> if y == 0 then 0 else x `div` y
-      SDIV -> if y == 0 then 0 else x `div` y -- Necesita manejo especial para números negativos
+      SDIV -> if y == 0 then 0 else signed x `div` signed y
       MOD -> if y == 0 then 0 else x `mod` y
-      SMOD -> if y == 0 then 0 else x `mod` y -- Necesita manejo especial para números negativos
-      EXP -> x ^ y -- Considerar limitación de tamaño
-      SIGNEXTEND -> signExtend x y -- Implementar la lógica de sign-extend
+      SMOD -> if y == 0 then 0 else signed x `mod` signed y
+      EXP -> (x ^ y) `mod` (2 ^ 256)
+      SIGNEXTEND -> signExtend x y
       Lib.LT -> if x < y then 1 else 0
       Lib.GT -> if x > y then 1 else 0
-      SLT -> if signed x < signed y then 1 else 0 -- Implementar la lógica para comparación con signo
-      SGT -> if signed x > signed y then 1 else 0 -- Implementar la lógica para comparación con signo
+      SLT -> if signed x < signed y then 1 else 0
+      SGT -> if signed x > signed y then 1 else 0
       Lib.EQ -> if x == y then 1 else 0
       AND -> x .&. y
       OR -> x .|. y
       XOR -> x `xor` y
-      BYTE -> (x `shiftR` (8 * fromIntegral y)) .&. 0xFF -- Implementar la lógica para obtener el enésimo byte
-      SHL -> x `shiftL` fromIntegral y
-      SHR -> x `shiftR` fromIntegral y
-      SAR -> x
-      SHA3 -> x -- I have to define memory first
+      BYTE -> if y == 0 || x > 31 then 0 else (y `shiftR` (8 * fromIntegral (31 - x))) .&. 0xFF
+      SHL -> (y `shiftL` fromIntegral x) `mod` (2 ^ 256)
+      SHR -> (y `shiftR` fromIntegral x) `mod` (2 ^ 256)
+      SAR -> shiftArithmeticRight y x
+      -- SHA3 -> x -- I have to define memory first
       _ -> error "Unsupported binary operation"
 
 signed :: Integer -> Integer
 signed x = if x >= 2 ^ 255 then x - 2 ^ 256 else x
 
 signExtend :: Integer -> Integer -> Integer
-signExtend x y = if x >= 2 ^ (8 * y) then x - 2 ^ (8 * y) else x
+signExtend t x
+  | t >= 31 = x
+  | otherwise =
+      let bitPosition = fromIntegral (t + 1) * 8 - 1
+          mask = 1 `shiftL` bitPosition
+          signBit = (x .&. mask) /= 0
+       in if signBit
+            then x .|. complement (mask - 1)
+            else x .&. (mask - 1)
+
+shiftArithmeticRight :: Integer -> Integer -> Integer
+shiftArithmeticRight x y
+  | y >= 256 = if testBit x 255 then -1 else 0
+  | otherwise =
+      let shifted = (x .&. maxEvmWord) `shiftR` fromIntegral y
+       in if testBit x 255
+            then shifted .|. (maxEvmWord `shiftL` fromIntegral (256 - y))
+            else shifted
+  where
+    maxEvmWord = 2 ^ 256 - 1

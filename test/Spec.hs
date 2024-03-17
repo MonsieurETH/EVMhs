@@ -75,4 +75,8 @@ stackToList s
       Nothing -> []
 
 integerToHexStr :: Integer -> String
-integerToHexStr n = "0x" ++ showHex n ""
+integerToHexStr n
+  | n == 0 = "0x0"
+  | otherwise = "0x" ++ dropWhile (== '0') hexStr
+  where
+    hexStr = showHex (n `mod` (2 ^ 256)) ""
