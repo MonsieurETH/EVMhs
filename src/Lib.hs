@@ -7,11 +7,15 @@ module Lib
 where
 
 import Crypto.Hash (Digest, SHA3_256, hash)
+import Data.Aeson.Encoding (string)
 import Data.Bits
 import Data.Char (digitToInt)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromJust, fromMaybe)
 import DataSpace (DataSpace, newDataSpace, readBytes, writeBytes)
+import Debug.Trace (trace)
 import Stack
+
+type Bytecode = [(Char, Char)]
 
 data EVM = EVM
   { pc :: Int,
@@ -274,12 +278,12 @@ swapOps =
 newEVM :: EVM
 newEVM = EVM {pc = 0, memory = newDataSpace, stack = stackNew, storage = newDataSpace}
 
-hexToDec :: String -> Integer
+hexToDec :: [Char] -> Integer
 hexToDec hexStr = read ("0x" ++ hexStr) :: Integer
 
-hexToOperation :: String -> EVMOperation
-hexToOperation hexStr =
-  case hexToDec hexStr of
+hexToOperation :: (Char, Char) -> EVMOperation
+hexToOperation (b1, b2) =
+  case hexToDec [b1, b2] of
     0x00 -> STOP
     0x01 -> ADD
     0x02 -> MUL
@@ -427,16 +431,63 @@ hexToOperation hexStr =
     _ -> error "Unknown operation code (during translation)."
 
 run :: EVM -> String -> Maybe EVM
-run evm [] = Just evm
-run evm ('0' : '0' : bc) = Just evm {pc = pc evm + 1}
-run evm (op1 : op2 : bc)
-  | op1 == '6' || op1 == '7' =
-      let pushNumber = fromIntegral (16 * (digitToInt op1 - 6) + digitToInt op2) + 1
-          n = 2 * pushNumber
-       in runOperation evm [op1, op2] (Just (take n bc)) >>= \evm' -> run evm' (drop n bc)
-  | otherwise = runOperation evm [op1, op2] Nothing >>= \evm' -> run evm' bc
+run evm code =
+  case stringToBytecode code of
+    Just bc -> execute evm bc
+    Nothing -> Nothing
 
-runOperation :: EVM -> String -> Maybe [Char] -> Maybe EVM
+stringToBytecode :: String -> Maybe Bytecode
+stringToBytecode [] = Just []
+stringToBytecode (op1 : op2 : bc) = (:) <$> Just (op1, op2) <*> stringToBytecode bc
+stringToBytecode _ = Nothing
+
+execute :: EVM -> Bytecode -> Maybe EVM
+execute evm [] = Just evm
+execute evm bc
+  | pc evm < 0 = Nothing
+  | pc evm >= length bc = Just evm
+  | bc !! pc evm == ('0', '0') = Just evm {pc = pc evm + 1}
+  | isPushOp (bc !! pc evm) =
+      let byte = bc !! pc evm
+          pushNumber = (16 * (digitToInt (fst byte) - 6) + digitToInt (snd byte)) + 1
+       in runOperation evm (bc !! pc evm) (Just (flatten (getSublist (pc evm + 1) pushNumber bc))) >>= \evm' -> execute evm' bc
+  | bc !! pc evm == ('5', '6') = stackPop (stack evm) >>= \(stack', x) -> if checkJumpdest bc (fromInteger x) then execute evm {pc = fromInteger x, stack = stack'} bc else Nothing
+  | otherwise = runOperation evm (bc !! pc evm) Nothing >>= \evm' -> execute evm' bc
+
+isPushOp :: (Char, Char) -> Bool
+isPushOp ('6', _) = True
+isPushOp ('7', _) = True
+isPushOp _ = False
+
+getSublist :: Int -> Int -> Bytecode -> Maybe Bytecode
+getSublist n i list
+  | n < 0 || i < 0 || n + i > length list = Nothing
+  | otherwise = Just $ take i . drop n $ list
+
+flatten :: Maybe Bytecode -> [Char]
+flatten Nothing = []
+flatten (Just xs) = concatMap (\(c1, c2) -> [c1, c2]) xs
+
+checkJumpdest :: Bytecode -> Int -> Bool
+checkJumpdest bc pos
+  | pos < 0 || pos >= length bc = False
+  | bc !! pos /= ('5', 'b') = False
+  | otherwise = notInRanges pos (pushRanges bc 0)
+
+pushRanges :: Bytecode -> Int -> [(Int, Int)]
+pushRanges [] _ = []
+pushRanges (byte : bc) pos
+  | isPushOp byte = (pos, pos + pushNumber) : pushRanges (drop pushNumber bc) (pos + pushNumber + 1)
+  | otherwise = pushRanges bc (pos + 1)
+  where
+    pc = length bc
+    pushNumber = (16 * (digitToInt (fst byte) - 6) + digitToInt (snd byte)) + 1
+
+notInRanges :: Int -> [(Int, Int)] -> Bool
+notInRanges _ [] = True
+notInRanges pos ((start, end) : ranges) = (pos < start || pos > end) && notInRanges pos ranges
+
+runOperation :: EVM -> (Char, Char) -> Maybe [Char] -> Maybe EVM
 runOperation evm op d
   | hexop == STOP = Just evm {pc = pc evm + 1}
   | hexop == ADDMOD = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> stackPop stack'' >>= \(stack''', z) -> Just evm {pc = pc evm + 1, stack = stackPush stack''' ((x + y) `mod` z)}
@@ -444,6 +495,10 @@ runOperation evm op d
   | hexop == POP = stackPop (stack evm) >>= \(stack', _) -> Just evm {pc = pc evm + 1, stack = stack'}
   | hexop == ISZERO = stackPop (stack evm) >>= \(stack', x) -> Just evm {pc = pc evm + 1, stack = stackPush stack' (if x == 0 then 1 else 0)}
   | hexop == NOT = stackPop (stack evm) >>= \(stack', x) -> Just evm {pc = pc evm + 1, stack = stackPush stack' (complement x)}
+  | hexop == PC = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (fromIntegral (pc evm))}
+  | hexop == INVALID = Nothing
+  | hexop == JUMPDEST = Just evm {pc = pc evm + 1}
+  | hexop == GAS = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) ((2 ^ 256) - 1)}
   | hexop `elem` swapOps = Just evm {pc = pc evm + 1, stack = stackSwapNM (stack evm) (fromEnum hexop - fromEnum SWAP1 + 1) 0}
   | hexop `elem` dupOps =
       let n = fromEnum hexop - fromEnum DUP1
@@ -456,7 +511,7 @@ runOperation evm op d
   | hexop `elem` pushOps =
       let n = fromEnum hexop - fromEnum PUSH1 + 2
        in Just evm {pc = pc evm + n, stack = stackPush (stack evm) hexdata}
-  | otherwise = error $ "Unknown operation code " ++ op
+  | otherwise = error $ "Unknown operation code " ++ [fst op, snd op]
   where
     hexop = hexToOperation op
     hexdata = hexToDec (fromMaybe "0" d)

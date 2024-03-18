@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+import Control.Monad (when)
 import Data.Aeson (FromJSON, decode, parseJSON, withObject, (.:))
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as B
@@ -63,9 +64,11 @@ createTest test = it (testName test) $ do
   let input = codeBin $ testCode test
   let result = Lib.run initialVm input
 
-  isJust result `shouldBe` (expectSuccess (testExpect test))
-  let updatedVm = fromJust result
-  (map integerToHexStr (stackToList (stack updatedVm))) `shouldBe` (expectStack (testExpect test))
+  let isSuccess = isJust result
+  isSuccess `shouldBe` expectSuccess (testExpect test)
+  when isSuccess $ do
+    let updatedVm = fromJust result
+    map integerToHexStr (stackToList (stack updatedVm)) `shouldBe` expectStack (testExpect test)
 
 stackToList :: Stack a -> [a]
 stackToList s
