@@ -6,14 +6,22 @@ module Lib
   )
 where
 
-import Crypto.Hash (Digest, SHA3_256, hash)
+import Crypto.Hash (Digest, SHA3_256 (SHA3_256), hashWith)
 import Data.Aeson.Encoding (string)
 import Data.Bits
-import Data.Char (digitToInt)
+import Data.Char (digitToInt, intToDigit)
 import Data.Maybe (fromJust, fromMaybe)
-import DataSpace (DataSpace, newDataSpace, readBytes, writeBytes)
+import DataSpace (DataSpace, memorySize, newDataSpace, readBytes, writeBytes)
 import Debug.Trace (trace)
+import Numeric (showHex, showIntAtBase)
 import Stack
+  ( Stack,
+    stackNew,
+    stackPeekN,
+    stackPop,
+    stackPush,
+    stackSwapNM,
+  )
 
 type Bytecode = [(Char, Char)]
 
@@ -452,6 +460,7 @@ execute evm bc
           pushNumber = (16 * (digitToInt (fst byte) - 6) + digitToInt (snd byte)) + 1
        in runOperation evm (bc !! pc evm) (Just (flatten (getSublist (pc evm + 1) pushNumber bc))) >>= \evm' -> execute evm' bc
   | bc !! pc evm == ('5', '6') = stackPop (stack evm) >>= \(stack', x) -> if checkJumpdest bc (fromInteger x) then execute evm {pc = fromInteger x, stack = stack'} bc else Nothing
+  | bc !! pc evm == ('5', '7') = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> if y /= 0 && checkJumpdest bc (fromInteger x) then execute evm {pc = fromInteger x, stack = stack''} bc else execute evm {pc = pc evm + 1, stack = stack''} bc
   | otherwise = runOperation evm (bc !! pc evm) Nothing >>= \evm' -> execute evm' bc
 
 isPushOp :: (Char, Char) -> Bool
@@ -487,6 +496,14 @@ notInRanges :: Int -> [(Int, Int)] -> Bool
 notInRanges _ [] = True
 notInRanges pos ((start, end) : ranges) = (pos < start || pos > end) && notInRanges pos ranges
 
+integerToHex :: Integer -> String
+integerToHex n =
+  let hex = showHex n ""
+   in replicate (64 - length hex) '0' ++ hex
+
+integerToHex8 :: Integer -> String
+integerToHex8 n = showHex n ""
+
 runOperation :: EVM -> (Char, Char) -> Maybe [Char] -> Maybe EVM
 runOperation evm op d
   | hexop == STOP = Just evm {pc = pc evm + 1}
@@ -499,6 +516,13 @@ runOperation evm op d
   | hexop == INVALID = Nothing
   | hexop == JUMPDEST = Just evm {pc = pc evm + 1}
   | hexop == GAS = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) ((2 ^ 256) - 1)}
+  | hexop == MSTORE = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> Just evm {pc = pc evm + 1, stack = stack'', memory = writeBytes (memory evm) (fromInteger x) (integerToHex y)}
+  | hexop == MSTORE8 = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> Just evm {pc = pc evm + 1, stack = stack'', memory = writeBytes (memory evm) (fromInteger x) (integerToHex8 (y `mod` 256))}
+  | hexop == MLOAD =
+      stackPop (stack evm) >>= \(stack', x) ->
+        let (memory', bytes) = readBytes (memory evm) (fromInteger x) 32
+         in Just evm {pc = pc evm + 1, memory = memory', stack = stackPush stack' (hexToDec bytes)}
+  | hexop == MSIZE = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (fromIntegral (memorySize (memory evm)))}
   | hexop `elem` swapOps = Just evm {pc = pc evm + 1, stack = stackSwapNM (stack evm) (fromEnum hexop - fromEnum SWAP1 + 1) 0}
   | hexop `elem` dupOps =
       let n = fromEnum hexop - fromEnum DUP1
@@ -537,7 +561,7 @@ runOperation evm op d
       SHL -> (y `shiftL` fromIntegral x) `mod` (2 ^ 256)
       SHR -> (y `shiftR` fromIntegral x) `mod` (2 ^ 256)
       SAR -> shiftArithmeticRight y x
-      -- SHA3 -> x -- I have to define memory first
+      -- SHA3 -> readBytes (memory evm) (fromInteger x) 32 >>= \(memory', bytes) -> bytes
       _ -> error "Unsupported binary operation"
 
 signed :: Integer -> Integer

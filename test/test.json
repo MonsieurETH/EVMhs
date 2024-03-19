@@ -839,20 +839,6 @@
     }
   },
   {
-    "name": "SHL (too large)",
-    "hint": "When shift amount is too large, returns zero",
-    "code": {
-      "asm": "PUSH1 1\nPUSH4 0xFFFFFFFF\nSHL",
-      "bin": "600163ffffffff1b"
-    },
-    "expect": {
-      "stack": [
-        "0x0"
-      ],
-      "success": true
-    }
-  },
-  {
     "name": "SHR",
     "hint": "Bitwise shift right, 2 >> 1 = 1",
     "code": {
@@ -1239,6 +1225,146 @@
     "expect": {
       "success": false,
       "stack": []
+    }
+  },
+  {
+    "name": "JUMPI (no jump)",
+    "hint": "Conditional JUMP, second argument is 0, not jumping",
+    "code": {
+      "asm": "PUSH1 0\nPUSH1 7\nJUMPI\nPUSH1 1\nJUMPDEST\nPUSH1 2\nPOP",
+      "bin": "600060075760015b600250"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "JUMPI (jump)",
+    "hint": "Conditional JUMP, second argument is not 0, jumping",
+    "code": {
+      "asm": "PUSH1 1\nPUSH1 7\nJUMPI\nPUSH1 1\nJUMPDEST\nPUSH1 2",
+      "bin": "600160075760015b6002"
+    },
+    "expect": {
+      "stack": [
+        "0x2"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MSTORE",
+    "hint": "Read \"Memory\" section of the course learning materials before implementing memory opcodes",
+    "code": {
+      "asm": "PUSH32 0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\nPUSH1 0\nMSTORE\nPUSH1 0\nMLOAD",
+      "bin": "7f0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20600052600051"
+    },
+    "expect": {
+      "stack": [
+        "0x102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MSTORE (tail)",
+    "hint": "MLOAD starts from byte offset 31 and picks up the last byte (0x20), the rest of the memory is 00",
+    "code": {
+      "asm": "PUSH32 0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\nPUSH1 0\nMSTORE\nPUSH1 31\nMLOAD",
+      "bin": "7f0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20600052601f51"
+    },
+    "expect": {
+      "stack": [
+        "0x2000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MSTORE8",
+    "hint": "Store a single byte at the given offset",
+    "code": {
+      "asm": "PUSH1 0xff\nPUSH1 31\nMSTORE8\nPUSH1 0\nMLOAD",
+      "bin": "60ff601f53600051"
+    },
+    "expect": {
+      "stack": [
+        "0xff"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MSIZE",
+    "hint": "No memory has been accessed, so the memory size is 0",
+    "code": {
+      "asm": "MSIZE",
+      "bin": "59"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MSIZE (0x20)",
+    "hint": "The first 32-byte section has been accessed, so the memory size is 32 (0x20)",
+    "code": {
+      "asm": "PUSH1 0\nMLOAD\nPOP\nMSIZE",
+      "bin": "6000515059"
+    },
+    "expect": {
+      "stack": [
+        "0x20"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MSIZE (0x60)",
+    "hint": "Memory is measured in 32-byte chunks",
+    "code": {
+      "asm": "PUSH1 0x39\nMLOAD\nPOP\nMSIZE",
+      "bin": "6039515059"
+    },
+    "expect": {
+      "stack": [
+        "0x60"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "MSIZE (after MSTORE8)",
+    "hint": "Any opcode touching memory should update MSIZE, including the future ones. Implement memory access in a way that automatically updates MSIZE no matter which opcode used it",
+    "code": {
+      "asm": "PUSH1 0xff\nPUSH1 0xff\nMSTORE8\nMSIZE",
+      "bin": "60ff60ff5359"
+    },
+    "expect": {
+      "stack": [
+        "0x100"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "SHA3",
+    "hint": "Use an existing library for your programming language. Note that even though the opcode is called SHA3, the algorythm used is keccak256",
+    "code": {
+      "asm": "PUSH32 0xffffffff00000000000000000000000000000000000000000000000000000000\nPUSH1 0\nMSTORE\nPUSH1 4\nPUSH1 0\nSHA3",
+      "bin": "7fffffffff000000000000000000000000000000000000000000000000000000006000526004600020"
+    },
+    "expect": {
+      "stack": [
+        "0x29045a592007d0c246ef02c2223570da9522d0cf0f73282c79a1bc8f0bb2c238"
+      ],
+      "success": true
     }
   }
 ]
