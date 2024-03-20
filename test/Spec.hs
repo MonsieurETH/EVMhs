@@ -49,6 +49,7 @@ instance FromJSON Tx where
       <*> v .:? "from"
       <*> v .:? "to"
       <*> v .:? "value"
+      <*> v .:? "data"
 
 instance FromJSON Block where
   parseJSON = withObject "Block" $ \v ->

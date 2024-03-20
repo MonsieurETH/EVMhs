@@ -13,7 +13,7 @@ import Data.Bits
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Char (digitToInt)
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromJust, fromMaybe, isJust)
 import DataSpace (DataSpace, memorySize, newDataSpace, readBytes, writeBytes)
 import Debug.Trace (trace)
 import Numeric (readHex, showHex)
@@ -41,7 +41,8 @@ data Tx = Tx
     txOrigin :: Maybe String,
     txFrom :: Maybe String,
     txTo :: Maybe String,
-    txValue :: Maybe String
+    txValue :: Maybe String,
+    txData :: Maybe String
   }
   deriving (Show)
 
@@ -597,6 +598,17 @@ runOperation evm tx block op d
   | hexop == DIFFICULTY = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (blockDifficulty (fromJust block))))}
   | hexop == GASLIMIT = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (blockGaslimit (fromJust block))))}
   | hexop == CHAINID = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (blockChainid (fromJust block))))}
+  | hexop == BLOCKHASH = stackPop (stack evm) >>= \(stack', _) -> Just evm {pc = pc evm + 1, stack = stackPush stack' 0}
+  | hexop == CALLVALUE = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (txValue (fromJust tx))))}
+  | hexop == CALLDATALOAD =
+      stackPop (stack evm) >>= \(stack', x) ->
+        let value = fromJust (txData (fromJust tx))
+            offset = fromInteger x * 2
+            data' = if offset < length value then take 64 (drop offset value) else replicate 64 '0'
+         in Just evm {pc = pc evm + 1, stack = stackPush stack' (hexToDec (data' ++ replicate (64 - length data') '0'))}
+  | hexop == CALLDATASIZE =
+      let value = if isJust tx then length (fromJust (txData (fromJust tx))) `div` 2 else 0
+       in Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (toInteger value)}
   | hexop `elem` swapOps = Just evm {pc = pc evm + 1, stack = stackSwapNM (stack evm) (fromEnum hexop - fromEnum SWAP1 + 1) 0}
   | hexop `elem` dupOps =
       let n = fromEnum hexop - fromEnum DUP1

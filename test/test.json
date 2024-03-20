@@ -1567,5 +1567,98 @@
       "success": true
     },
     "hint": ""
+  },{
+    "name": "BLOCKHASH",
+    "hint": "Not used in this test suite, can return 0",
+    "code": {
+      "asm": "PUSH1 0\nBLOCKHASH",
+      "bin": "600040"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    }
+  },{
+    "name": "CALLVALUE",
+    "hint": "Read \"Calls\" section of the course learning materials. Solidity calls this msg.value, it is amount of wei sent as part of this transaction",
+    "tx": {
+      "value": "0x1000"
+    },
+    "code": {
+      "asm": "CALLVALUE",
+      "bin": "34"
+    },
+    "expect": {
+      "stack": [
+        "0x1000"
+      ],
+      "success": true
+    }
+  },{
+    "name": "CALLDATALOAD",
+    "hint": "Read \"Calls\" section of the course learning materials. Calldata is an array of bytes sent to the evm function",
+    "tx": {
+      "data": "000102030405060708090a0b0c0d0e0f00112233445566778899aabbccddeeff"
+    },
+    "code": {
+      "asm": "PUSH1 0\nCALLDATALOAD",
+      "bin": "600035"
+    },
+    "expect": {
+      "stack": [
+        "0x102030405060708090a0b0c0d0e0f00112233445566778899aabbccddeeff"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "CALLDATALOAD (tail)",
+    "hint": "Overflow bytes filled with zeros",
+    "tx": {
+      "data": "000102030405060708090a0b0c0d0e0f00112233445566778899aabbccddeeff"
+    },
+    "code": {
+      "asm": "PUSH1 31\nCALLDATALOAD",
+      "bin": "601f35"
+    },
+    "expect": {
+      "stack": [
+        "0xff00000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "CALLDATASIZE",
+    "hint": "Size (in bytes) of calldata buffer",
+    "tx": {
+      "data": "000102030405060708090a0b0c0d0e0f00112233445566778899aabbccddeeff"
+    },
+    "code": {
+      "asm": "CALLDATASIZE",
+      "bin": "36"
+    },
+    "expect": {
+      "stack": [
+        "0x20"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "CALLDATASIZE (no data)",
+    "code": {
+      "asm": "CALLDATASIZE",
+      "bin": "36"
+    },
+    "expect": {
+      "stack": [
+        "0x0"
+      ],
+      "success": true
+    },
+    "hint": ""
   }
 ]
