@@ -7,7 +7,7 @@ main = do
   putStrLn "Enter bytecode:"
   input <- getLine
   let initialVm = Lib.newEVM
-      maybeUpdatedVm = Lib.run initialVm input
+      maybeUpdatedVm = Lib.run initialVm Nothing Nothing input
   case maybeUpdatedVm of
     Just updatedVm -> putStrLn $ "Updated VM: " ++ show updatedVm
     Nothing -> putStrLn "Error: Execution failed"

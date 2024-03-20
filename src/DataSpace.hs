@@ -28,7 +28,6 @@ writeBytes (mem, size) pos bytes =
 memoryRange32 :: Int -> Int -> [(Int, Int)]
 memoryRange32 p l
   | l == 0 = []
-  -- \| p == l = []
   | l `mod` 32 /= 0 = (l - l `mod` 32, l + 32 - l `mod` 32 - 1) : memoryRange32 p (l - l `mod` 32)
   | otherwise = (l - 32, l - 1) : memoryRange32 p (l - 32)
 

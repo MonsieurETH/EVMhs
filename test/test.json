@@ -1366,5 +1366,206 @@
       ],
       "success": true
     }
+  },{
+    "name": "ADDRESS",
+    "hint": "Read \"Transaction\" section of the course learning materials. Change your evm function parameters list to include transaction data",
+    "tx": {
+      "to": "0x1000000000000000000000000000000000000aaa"
+    },
+    "code": {
+      "asm": "ADDRESS",
+      "bin": "30"
+    },
+    "expect": {
+      "stack": [
+        "0x1000000000000000000000000000000000000aaa"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "CALLER",
+    "hint": "Solidity calls this msg.sender",
+    "tx": {
+      "from": "0x1e79b045dc29eae9fdc69673c9dcd7c53e5e159d"
+    },
+    "code": {
+      "asm": "CALLER",
+      "bin": "33"
+    },
+    "expect": {
+      "stack": [
+        "0x1e79b045dc29eae9fdc69673c9dcd7c53e5e159d"
+      ],
+      "success": true
+    }
+  },{
+    "name": "ORIGIN",
+    "hint": "Solidity calls this tx.origin",
+    "tx": {
+      "origin": "0x1337"
+    },
+    "code": {
+      "asm": "ORIGIN",
+      "bin": "32"
+    },
+    "expect": {
+      "stack": [
+        "0x1337"
+      ],
+      "success": true
+    }
+  },  {
+    "name": "GASPRICE",
+    "tx": {
+      "gasprice": "0x99"
+    },
+    "code": {
+      "asm": "GASPRICE",
+      "bin": "3a"
+    },
+    "expect": {
+      "stack": [
+        "0x99"
+      ],
+      "success": true
+    },
+    "hint": ""
+  },
+  {
+    "name": "BASEFEE",
+    "block": {
+      "basefee": "0x1"
+    },
+    "code": {
+      "asm": "BASEFEE",
+      "bin": "48"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    },
+    "hint": ""
+  },
+  {
+    "name": "COINBASE",
+    "hint": "Do not hardcode these numbers, pull them from the test cases",
+    "block": {
+      "coinbase": "0x777"
+    },
+    "code": {
+      "asm": "COINBASE",
+      "bin": "41"
+    },
+    "expect": {
+      "stack": [
+        "0x777"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "COINBASE (different one)",
+    "hint": "Do not hardcode these numbers, pull them from the test cases",
+    "block": {
+      "coinbase": "0x888"
+    },
+    "code": {
+      "asm": "COINBASE",
+      "bin": "41"
+    },
+    "expect": {
+      "stack": [
+        "0x888"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "TIMESTAMP",
+    "hint": "Solidity calls this block.timestamp",
+    "block": {
+      "timestamp": "0xe4e1c1"
+    },
+    "code": {
+      "asm": "TIMESTAMP",
+      "bin": "42"
+    },
+    "expect": {
+      "stack": [
+        "0xe4e1c1"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "NUMBER",
+    "hint": "Solidity calls this block.number",
+    "block": {
+      "number": "0x1000001"
+    },
+    "code": {
+      "asm": "NUMBER",
+      "bin": "43"
+    },
+    "expect": {
+      "stack": [
+        "0x1000001"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "DIFFICULTY",
+    "hint": "Also known as PREVRANDAO, not used in these test cases yet",
+    "block": {
+      "difficulty": "0x20000"
+    },
+    "code": {
+      "asm": "DIFFICULTY",
+      "bin": "44"
+    },
+    "expect": {
+      "stack": [
+        "0x20000"
+      ],
+      "success": true
+    }
+  },
+  {
+    "name": "GASLIMIT",
+    "block": {
+      "gaslimit": "0xffffffffffff"
+    },
+    "code": {
+      "asm": "GASLIMIT",
+      "bin": "45"
+    },
+    "expect": {
+      "stack": [
+        "0xffffffffffff"
+      ],
+      "success": true
+    },
+    "hint": ""
+  },
+  {
+    "name": "CHAINID",
+    "block": {
+      "chainid": "0x1"
+    },
+    "code": {
+      "asm": "CHAINID",
+      "bin": "46"
+    },
+    "expect": {
+      "stack": [
+        "0x1"
+      ],
+      "success": true
+    },
+    "hint": ""
   }
 ]

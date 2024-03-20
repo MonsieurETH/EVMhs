@@ -1,18 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Control.Monad (when)
-import Data.Aeson (FromJSON, decode, parseJSON, withObject, (.:))
-import Data.ByteString.Lazy (ByteString)
+import Data.Aeson (FromJSON, decode, parseJSON, withObject, (.:), (.:?))
 import qualified Data.ByteString.Lazy as B
-import Data.Maybe (fromJust, isJust)
+import Data.Maybe (fromJust, fromMaybe, isJust)
 import Lib
 import Numeric (showHex)
-import Stack (Stack, stackIsEmpty, stackNew, stackPop, stackPush, stackSize)
+import Stack (Stack, stackIsEmpty, stackPop)
 import Test.Hspec
 
 data Test = Test
   { testName :: String,
     testHint :: String,
+    testTx :: Maybe Lib.Tx,
+    testBlock :: Maybe Lib.Block,
     testCode :: Code,
     testExpect :: Main.Expectation
   }
@@ -35,8 +36,30 @@ instance FromJSON Test where
     Test
       <$> v .: "name"
       <*> v .: "hint"
+      <*> v .:? "tx"
+      <*> v .:? "block"
       <*> v .: "code"
       <*> v .: "expect"
+
+instance FromJSON Tx where
+  parseJSON = withObject "Tx" $ \v ->
+    Tx
+      <$> v .:? "gasprice"
+      <*> v .:? "origin"
+      <*> v .:? "from"
+      <*> v .:? "to"
+      <*> v .:? "value"
+
+instance FromJSON Block where
+  parseJSON = withObject "Block" $ \v ->
+    Block
+      <$> v .:? "coinbase"
+      <*> v .:? "difficulty"
+      <*> v .:? "basefee"
+      <*> v .:? "gaslimit"
+      <*> v .:? "number"
+      <*> v .:? "timestamp"
+      <*> v .:? "chainid"
 
 instance FromJSON Code where
   parseJSON = withObject "Code" $ \v ->
@@ -62,7 +85,9 @@ createTest :: Test -> Spec
 createTest test = it (testName test) $ do
   let initialVm = newEVM
   let input = codeBin $ testCode test
-  let result = Lib.run initialVm input
+  let tx = testTx test
+  let block = testBlock test
+  let result = Lib.run initialVm tx block input
 
   let isSuccess = isJust result
   isSuccess `shouldBe` expectSuccess (testExpect test)

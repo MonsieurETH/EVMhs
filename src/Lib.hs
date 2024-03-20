@@ -3,17 +3,20 @@ module Lib
     run,
     EVM (..),
     hexToDec,
+    Tx (..),
+    Block (..),
   )
 where
 
-import Crypto.Hash (Digest, SHA3_256 (SHA3_256), hashWith)
-import Data.Aeson.Encoding (string)
+import Crypto.Hash (Keccak_256 (Keccak_256), hashWith)
 import Data.Bits
-import Data.Char (digitToInt, intToDigit)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
+import Data.Char (digitToInt)
 import Data.Maybe (fromJust, fromMaybe)
 import DataSpace (DataSpace, memorySize, newDataSpace, readBytes, writeBytes)
 import Debug.Trace (trace)
-import Numeric (showHex, showIntAtBase)
+import Numeric (readHex, showHex)
 import Stack
   ( Stack,
     stackNew,
@@ -30,6 +33,26 @@ data EVM = EVM
     memory :: DataSpace,
     stack :: Stack Integer,
     storage :: DataSpace
+  }
+  deriving (Show)
+
+data Tx = Tx
+  { txGasprice :: Maybe String,
+    txOrigin :: Maybe String,
+    txFrom :: Maybe String,
+    txTo :: Maybe String,
+    txValue :: Maybe String
+  }
+  deriving (Show)
+
+data Block = Block
+  { blockCoinbase :: Maybe String,
+    blockDifficulty :: Maybe String,
+    blockBasefee :: Maybe String,
+    blockGaslimit :: Maybe String,
+    blockNumber :: Maybe String,
+    blockTimestamp :: Maybe String,
+    blockChainid :: Maybe String
   }
   deriving (Show)
 
@@ -289,6 +312,12 @@ newEVM = EVM {pc = 0, memory = newDataSpace, stack = stackNew, storage = newData
 hexToDec :: [Char] -> Integer
 hexToDec hexStr = read ("0x" ++ hexStr) :: Integer
 
+hexToDecFull :: [Char] -> Integer
+hexToDecFull hexStr = read (hexStr) :: Integer
+
+sha3_256 :: ByteString -> String
+sha3_256 = show . hashWith Keccak_256
+
 hexToOperation :: (Char, Char) -> EVMOperation
 hexToOperation (b1, b2) =
   case hexToDec [b1, b2] of
@@ -438,10 +467,10 @@ hexToOperation (b1, b2) =
     0xFF -> SELFDESTRUCT
     _ -> error "Unknown operation code (during translation)."
 
-run :: EVM -> String -> Maybe EVM
-run evm code =
+run :: EVM -> Maybe Tx -> Maybe Block -> String -> Maybe EVM
+run evm tx block code =
   case stringToBytecode code of
-    Just bc -> execute evm bc
+    Just bc -> execute evm tx block bc
     Nothing -> Nothing
 
 stringToBytecode :: String -> Maybe Bytecode
@@ -449,19 +478,24 @@ stringToBytecode [] = Just []
 stringToBytecode (op1 : op2 : bc) = (:) <$> Just (op1, op2) <*> stringToBytecode bc
 stringToBytecode _ = Nothing
 
-execute :: EVM -> Bytecode -> Maybe EVM
-execute evm [] = Just evm
-execute evm bc
+execute :: EVM -> Maybe Tx -> Maybe Block -> Bytecode -> Maybe EVM
+execute evm _ _ [] = Just evm
+execute evm tx block bc
   | pc evm < 0 = Nothing
   | pc evm >= length bc = Just evm
   | bc !! pc evm == ('0', '0') = Just evm {pc = pc evm + 1}
   | isPushOp (bc !! pc evm) =
       let byte = bc !! pc evm
           pushNumber = (16 * (digitToInt (fst byte) - 6) + digitToInt (snd byte)) + 1
-       in runOperation evm (bc !! pc evm) (Just (flatten (getSublist (pc evm + 1) pushNumber bc))) >>= \evm' -> execute evm' bc
-  | bc !! pc evm == ('5', '6') = stackPop (stack evm) >>= \(stack', x) -> if checkJumpdest bc (fromInteger x) then execute evm {pc = fromInteger x, stack = stack'} bc else Nothing
-  | bc !! pc evm == ('5', '7') = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> if y /= 0 && checkJumpdest bc (fromInteger x) then execute evm {pc = fromInteger x, stack = stack''} bc else execute evm {pc = pc evm + 1, stack = stack''} bc
-  | otherwise = runOperation evm (bc !! pc evm) Nothing >>= \evm' -> execute evm' bc
+       in runOperation evm tx block (bc !! pc evm) (Just (flatten (getSublist (pc evm + 1) pushNumber bc))) >>= \evm' -> execute evm' tx block bc
+  | bc !! pc evm == ('5', '6') =
+      stackPop (stack evm) >>= \(stack', x) ->
+        if checkJumpdest bc (fromInteger x) then execute evm {pc = fromInteger x, stack = stack'} tx block bc else Nothing
+  | bc !! pc evm == ('5', '7') =
+      stackPop (stack evm) >>= \(stack', x) ->
+        stackPop stack' >>= \(stack'', y) ->
+          if y /= 0 && checkJumpdest bc (fromInteger x) then execute evm {pc = fromInteger x, stack = stack''} tx block bc else execute evm {pc = pc evm + 1, stack = stack''} tx block bc
+  | otherwise = runOperation evm tx block (bc !! pc evm) Nothing >>= \evm' -> execute evm' tx block bc
 
 isPushOp :: (Char, Char) -> Bool
 isPushOp ('6', _) = True
@@ -489,7 +523,6 @@ pushRanges (byte : bc) pos
   | isPushOp byte = (pos, pos + pushNumber) : pushRanges (drop pushNumber bc) (pos + pushNumber + 1)
   | otherwise = pushRanges bc (pos + 1)
   where
-    pc = length bc
     pushNumber = (16 * (digitToInt (fst byte) - 6) + digitToInt (snd byte)) + 1
 
 notInRanges :: Int -> [(Int, Int)] -> Bool
@@ -504,25 +537,66 @@ integerToHex n =
 integerToHex8 :: Integer -> String
 integerToHex8 n = showHex n ""
 
-runOperation :: EVM -> (Char, Char) -> Maybe [Char] -> Maybe EVM
-runOperation evm op d
+hexToByteString :: String -> ByteString
+hexToByteString hexStr = BS.pack $ map (fst . head . readHex) (groupPairs hexStr)
+  where
+    groupPairs [] = []
+    groupPairs (a : b : rest) = [a, b] : groupPairs rest
+    groupPairs _ = error "Invalid hex string"
+
+runOperation :: EVM -> Maybe Tx -> Maybe Block -> (Char, Char) -> Maybe [Char] -> Maybe EVM
+runOperation evm tx block op d
   | hexop == STOP = Just evm {pc = pc evm + 1}
-  | hexop == ADDMOD = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> stackPop stack'' >>= \(stack''', z) -> Just evm {pc = pc evm + 1, stack = stackPush stack''' ((x + y) `mod` z)}
-  | hexop == MULMOD = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> stackPop stack'' >>= \(stack''', z) -> Just evm {pc = pc evm + 1, stack = stackPush stack''' ((x * y) `mod` z)}
+  | hexop == ADDMOD =
+      stackPop (stack evm) >>= \(stack', x) ->
+        stackPop stack' >>= \(stack'', y) ->
+          stackPop stack'' >>= \(stack''', z) ->
+            Just evm {pc = pc evm + 1, stack = stackPush stack''' ((x + y) `mod` z)}
+  | hexop == MULMOD =
+      stackPop (stack evm) >>= \(stack', x) ->
+        stackPop stack' >>= \(stack'', y) ->
+          stackPop stack'' >>= \(stack''', z) ->
+            Just evm {pc = pc evm + 1, stack = stackPush stack''' ((x * y) `mod` z)}
   | hexop == POP = stackPop (stack evm) >>= \(stack', _) -> Just evm {pc = pc evm + 1, stack = stack'}
-  | hexop == ISZERO = stackPop (stack evm) >>= \(stack', x) -> Just evm {pc = pc evm + 1, stack = stackPush stack' (if x == 0 then 1 else 0)}
-  | hexop == NOT = stackPop (stack evm) >>= \(stack', x) -> Just evm {pc = pc evm + 1, stack = stackPush stack' (complement x)}
+  | hexop == ISZERO =
+      stackPop (stack evm) >>= \(stack', x) ->
+        Just evm {pc = pc evm + 1, stack = stackPush stack' (if x == 0 then 1 else 0)}
+  | hexop == NOT =
+      stackPop (stack evm) >>= \(stack', x) ->
+        Just evm {pc = pc evm + 1, stack = stackPush stack' (complement x)}
   | hexop == PC = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (fromIntegral (pc evm))}
   | hexop == INVALID = Nothing
   | hexop == JUMPDEST = Just evm {pc = pc evm + 1}
   | hexop == GAS = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) ((2 ^ 256) - 1)}
-  | hexop == MSTORE = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> Just evm {pc = pc evm + 1, stack = stack'', memory = writeBytes (memory evm) (fromInteger x) (integerToHex y)}
-  | hexop == MSTORE8 = stackPop (stack evm) >>= \(stack', x) -> stackPop stack' >>= \(stack'', y) -> Just evm {pc = pc evm + 1, stack = stack'', memory = writeBytes (memory evm) (fromInteger x) (integerToHex8 (y `mod` 256))}
+  | hexop == MSTORE =
+      stackPop (stack evm) >>= \(stack', x) ->
+        stackPop stack' >>= \(stack'', y) ->
+          Just evm {pc = pc evm + 1, stack = stack'', memory = writeBytes (memory evm) (fromInteger x) (integerToHex y)}
+  | hexop == MSTORE8 =
+      stackPop (stack evm) >>= \(stack', x) ->
+        stackPop stack' >>= \(stack'', y) ->
+          Just evm {pc = pc evm + 1, stack = stack'', memory = writeBytes (memory evm) (fromInteger x) (integerToHex8 (y `mod` 256))}
+  | hexop == SHA3 =
+      stackPop (stack evm) >>= \(stack', x) ->
+        stackPop stack' >>= \(stack'', y) ->
+          let (memory', bytes) = readBytes (memory evm) (fromInteger x) (fromInteger y)
+           in Just evm {pc = pc evm + 1, stack = stackPush stack'' $ hexToDec (sha3_256 (hexToByteString bytes)), memory = memory'}
   | hexop == MLOAD =
       stackPop (stack evm) >>= \(stack', x) ->
         let (memory', bytes) = readBytes (memory evm) (fromInteger x) 32
          in Just evm {pc = pc evm + 1, memory = memory', stack = stackPush stack' (hexToDec bytes)}
   | hexop == MSIZE = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (fromIntegral (memorySize (memory evm)))}
+  | hexop == ADDRESS = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (txTo (fromJust tx))))}
+  | hexop == CALLER = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (txFrom (fromJust tx))))}
+  | hexop == ORIGIN = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (txOrigin (fromJust tx))))}
+  | hexop == GASPRICE = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (txGasprice (fromJust tx))))}
+  | hexop == BASEFEE = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (blockBasefee (fromJust block))))}
+  | hexop == COINBASE = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (blockCoinbase (fromJust block))))}
+  | hexop == TIMESTAMP = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (blockTimestamp (fromJust block))))}
+  | hexop == NUMBER = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (blockNumber (fromJust block))))}
+  | hexop == DIFFICULTY = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (blockDifficulty (fromJust block))))}
+  | hexop == GASLIMIT = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (blockGaslimit (fromJust block))))}
+  | hexop == CHAINID = Just evm {pc = pc evm + 1, stack = stackPush (stack evm) (hexToDecFull (fromJust (blockChainid (fromJust block))))}
   | hexop `elem` swapOps = Just evm {pc = pc evm + 1, stack = stackSwapNM (stack evm) (fromEnum hexop - fromEnum SWAP1 + 1) 0}
   | hexop `elem` dupOps =
       let n = fromEnum hexop - fromEnum DUP1
@@ -561,7 +635,6 @@ runOperation evm op d
       SHL -> (y `shiftL` fromIntegral x) `mod` (2 ^ 256)
       SHR -> (y `shiftR` fromIntegral x) `mod` (2 ^ 256)
       SAR -> shiftArithmeticRight y x
-      -- SHA3 -> readBytes (memory evm) (fromInteger x) 32 >>= \(memory', bytes) -> bytes
       _ -> error "Unsupported binary operation"
 
 signed :: Integer -> Integer
